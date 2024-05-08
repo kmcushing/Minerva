@@ -46,6 +46,8 @@ def retrieve_user_messages(username, query, max_results=10, max_distance=2.0):
     return relevant_messages
 
 
+# INITIAL TESTING
+
 # store_user_message(
 #     "test_user_1",
 #     "I like Computer Science.",
