@@ -9,3 +9,4 @@ llama-cpp-python
 langchain==0.1.17
 # gpt4all==2.6.0
 chromadb
+jsons
