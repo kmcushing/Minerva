@@ -1,11 +1,11 @@
 import chromadb
 from datetime import datetime
 from uuid import uuid4
+import os
 
-STORAGE_PATH = "data/chat_embeddings"
 DATE_FORMAT = "%m-%d-%YT%H:%M:%S"
 
-client = chromadb.PersistentClient(path=STORAGE_PATH)
+client = chromadb.PersistentClient(path=os.environ["STORAGE_PATH"])
 
 
 # TODO: fix "Context leak detected" message
@@ -28,14 +28,15 @@ def retrieve_user_messages(username, query, max_results=10, max_distance=2.0):
         n_results=max_results,
     )
 
-    # assuming only one query - sort by dist
+    # assuming only one query - sort by recency
     data = sorted(
         zip(
             results["documents"][0],
             results["metadatas"][0],
             results["distances"][0],
         ),
-        key=lambda x: x[-1],
+        key=lambda x: datetime.strptime(x[1]["timestamp"], DATE_FORMAT),
+        reverse=True,
     )
 
     relevant_messages = []
