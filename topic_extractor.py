@@ -11,4 +11,4 @@ def extract_topic(statement):
     return pipe(statement)[0]["label"]
 
 
-print(extract_topic("I like math."))
+# print(extract_topic("Hello"))

@@ -64,5 +64,5 @@ def load_user(id):
         return User(id)
 
 
-user1 = load_user("user1")
-print(user1)
+# user1 = load_user("user1")
+# print(user1.to_prompt())
