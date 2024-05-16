@@ -6,17 +6,25 @@ from langchain_community.embeddings.sentence_transformer import (
 )
 from transformers import pipeline
 import spacy 
-#import chromadb
+from user_representation import User, load_user
+
+from chat_storage import store_user_message, retrieve_user_messages
+import random
 
 
-#client = chromadb.PersistentClient(path="/path/to/save/to")
-#
-#
-#collection = client.create_collection(name="my_collection", embedding_function=emb_fn)
-#collection = client.get_collection(name="my_collection", embedding_function=emb_fn)
+
+if "GOOGLE_API_KEY" not in os.environ:
+    os.environ["GOOGLE_API_KEY"] = getpass.getpass("Provide your Google API Key")
 
 
-#doc = nlp(content)
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+llm = ChatGoogleGenerativeAI(model="gemini-pro")
+
+
+
+user_info= input('Please enter your username')
+curr_user = load_user(user_info)
  
 #for ent in doc.ents:
     #print(ent.text, ent.start_char, ent.end_char, ent.label_)
@@ -71,53 +79,54 @@ class Prompt_Handler:
                     self.violation[mx] -= .2 * score
                     if mx == "Quality":
                         #prompt to ask the user for more information and update records
-                        pass
+                        result = llm.invoke(f"{SYSTEM_PROMPT+'Ask the user for more information on what is incorrect'}")
+                        print(result.content)
+                        prompted = True
                 else:
                     self.violation[mx] += .1 * score
         else:
-            pass
+            for mx, phrase in maxims.items():
+                self.violation[mx] += .1 * score
             #test for sensitivity
 
         #parase through prompt and assign new gricean values
         return self.violation,self.num_turns
     def domain_builder(self,prompt):
-        doc = self.nlp(prompt)
+        doc = self.classify(prompt)
         # Extract and categorize entities dynamically
         for ent in doc.ents:
-            #self.persona[ent.label_]["Entities"].append(ent.text)
-            self.persona[ent.text]["Counts"][ent.text] += 1
+            curr_user.disscussed_topic(ent.text)
+            
 
     
-#docs = 
-
-'''
-
-embedding_function = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-
-# load it into Chroma
-db = Chroma.from_documents(docs, embedding_function)
 
 
-if "GOOGLE_API_KEY" not in os.environ:
-    os.environ["GOOGLE_API_KEY"] = getpass.getpass("Provide your Google API Key")
 
 
-from langchain_google_genai import ChatGoogleGenerativeAI
 
-llm = ChatGoogleGenerativeAI(model="gemini-pro")
-'''
+SYSTEM_PROMPT = """\
+You are Minerva, an Academic Advisor conversational assistant at Northwestern University, skilled at crafting responses to \
+effectively communcate with a specific user given some information about them. \
+Do NOT generate human responses, just respond to the human's message in the \
+context of the conversation.  Using the user profile and parameters of Gricean maxims, cater your response to the user.You are not a student!"""
 
-#db3 = Chroma(persist_directory="./chroma_db", embedding_function=embedding_function)
-#docs = db.similarity_search(query)
 
-user_info= input('Please enter your username')
-#print welcome message for user(first time/returning)
-#create messeage based on user profile, if user profile is none = print generic welcome 
+dit= curr_user.topic_frequencies
+context = retrieve_user_messages(user_info,list(dit.keys())[random.randint(0,2)])
+
+welcome = llm.invoke(f"{SYSTEM_PROMPT + 'Craft a welcome message for the user based on your previous conversation' + user_info + str(curr_user) + str(context)}")
+print(welcome.content)
 model = Prompt_Handler()
+prompted= False
+
 while True:
     query = input()
+    if query == 'exit':
+        break
     results= model.gricean_att(query)
-    print(results)
-    #result = llm.invoke("Write a ballad about LangChain")
-    #print(result.content)
-    pass
+    model.domain_builder(query)
+    if not prompted:
+        result = llm.invoke(f"{SYSTEM_PROMPT + str(maxims) + query}")
+        print(result.content)
+    store_user_message(user_info,query,result.content)
+    prompted = False
