@@ -24,7 +24,10 @@ path = 'data/courses.json'
 with open(path, 'r') as file:
    data = json.load(file)
 
-
+#read catalog
+file_path = 'data/catalog.txt'
+with open(file_path, 'r') as file:
+    catalog = file.read()
 
 
 if "GOOGLE_API_KEY" not in os.environ:
@@ -45,7 +48,12 @@ If there are multiple such domains, output each one separated by a comma. \
 If the user's message only conveys outsider knowledge of domains, output "None". \
 Follow this with your response to the user's message. Begin all responses with "Minerva:". \
 {user_info}
-{relevant_messages}"""
+{relevant_messages}
+Here is the catalog:
+{catalog}.
+Here is the major requirements:
+{data}
+"""
 
 # from langchain_google_genai import ChatGoogleGenerativeAI
 
