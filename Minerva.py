@@ -8,11 +8,12 @@ from langchain_community.embeddings.sentence_transformer import (
 from transformers import pipeline
 import spacy
 from user_representation import User, load_user
+from course_info_storage import COURSE_COLLECTION, retrieve_and_format_courses
 
 # os.environ["STORAGE_PATH"] = '/Users/dwayne/Desktop/Course_DataBase/data'
 # os.environ["GOOGLE_API_KEY"] = "AIzaSyC_wsDE80a6LnetEPc_RjwikFptJRw8-AU"
 
-from chat_storage import store_user_message, retrieve_user_messages
+from chat_storage import store_user_message, retrieve_and_format_user_messages
 import random
 
 import json
@@ -24,9 +25,9 @@ path = "data/courses.json"
 with open(path, "r") as file:
     data = json.load(file)
 
-#read catalog
-file_path = 'data/catalog.txt'
-with open(file_path, 'r') as file:
+# read catalog
+file_path = "data/catalog.txt"
+with open(file_path, "r") as file:
     catalog = file.read()
 
 
@@ -49,10 +50,6 @@ If the user's message only conveys outsider knowledge of domains, output "None".
 Follow this with your response to the user's message. Begin all responses with "Minerva:". \
 {user_info}
 {relevant_messages}
-Here is the catalog:
-{catalog}.
-Here is the major requirements:
-{data}
 """
 
 # from langchain_google_genai import ChatGoogleGenerativeAI
@@ -208,13 +205,18 @@ class Prompt_Handler:
 def chat_session(test=False):
 
     if not test:
-        user_id = input("Please enter your username: ")
+        # user_id cant be same as the name of our collection for course info
+        invalid_user_id = True
+        while invalid_user_id:
+            user_id = input("Please enter your username: ")
+            if user_id != COURSE_COLLECTION:
+                invalid_user_id = False
         user = load_user(user_id)
 
         dit = user.topic_frequencies
-        # choose a random topic to retrieve info for?
+        # choose a random topic to retrieve info - may want to sample based on topic frequencies
         context = (
-            retrieve_user_messages(
+            retrieve_and_format_user_messages(
                 user_id,
                 list(dit.keys())[random.randint(0, len(dit.keys()) - 1)],
             )
@@ -231,7 +233,7 @@ def chat_session(test=False):
                     "parts": "System Prompt: "
                     + SYSTEM_PROMPT.format(
                         user_info=user.to_prompt(),
-                        relevant_messages=None,
+                        relevant_messages=context,
                     ),
                 },
                 {
@@ -253,9 +255,11 @@ def chat_session(test=False):
             if user_input == "exit":
                 break
             # update system prompt with more recent info and updated relevant sources
+            context = retrieve_and_format_user_messages(user_id, user_input)
+            print("CONTEXT:", context)
             chat.history[0].parts[0].text = "System Prompt: " + SYSTEM_PROMPT.format(
                 user_info=user.to_prompt(),
-                relevant_messages=retrieve_user_messages(user_id, user_input),
+                relevant_messages=context,
             )
             print("USER INFO:", user.to_prompt())
             # param = dialouge_manager.gricean_att(user_input)
