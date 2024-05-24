@@ -9,8 +9,8 @@ from transformers import pipeline
 import spacy
 from user_representation import User, load_user
 
-os.environ["STORAGE_PATH"] = '/Users/dwayne/Desktop/Course_DataBase/data'
-os.environ["GOOGLE_API_KEY"] = "AIzaSyC_wsDE80a6LnetEPc_RjwikFptJRw8-AU"
+# os.environ["STORAGE_PATH"] = '/Users/dwayne/Desktop/Course_DataBase/data'
+# os.environ["GOOGLE_API_KEY"] = "AIzaSyC_wsDE80a6LnetEPc_RjwikFptJRw8-AU"
 
 from chat_storage import store_user_message, retrieve_user_messages
 import random
@@ -18,13 +18,11 @@ import random
 import json
 
 
-path = 'data/courses.json'
+path = "data/courses.json"
 
 # Open the JSON file and load its content into a variable
-with open(path, 'r') as file:
-   data = json.load(file)
-
-
+with open(path, "r") as file:
+    data = json.load(file)
 
 
 if "GOOGLE_API_KEY" not in os.environ:
@@ -197,7 +195,7 @@ class Prompt_Handler:
         return message
 
 
-def chat_session(test = False):
+def chat_session(test=False):
 
     if not test:
         user_id = input("Please enter your username: ")
@@ -213,7 +211,7 @@ def chat_session(test = False):
             if dit
             else None
         )
-        #print(context)
+        # print(context)
         llm = genai.GenerativeModel("gemini-pro")
         # set initial chat history with system prompt - update history[0] to reflect most up to date infor about the user
         chat = llm.start_chat(
@@ -250,8 +248,7 @@ def chat_session(test = False):
                 relevant_messages=retrieve_user_messages(user_id, user_input),
             )
             print("USER INFO:", user.to_prompt())
-            #param = dialouge_manager.gricean_att(user_input)
-
+            # param = dialouge_manager.gricean_att(user_input)
 
             response = chat.send_message(user_input)
             # print(result.content)
@@ -261,7 +258,7 @@ def chat_session(test = False):
             print(output)
             prompted = False
     else:
-        user_info = 'test'
+        user_info = "test"
         llm = genai.GenerativeModel("gemini-pro")
         dialouge_manager = Prompt_Handler(llm, user_info)
         # set initial chat history with system prompt - update history[0] to reflect most up to date infor about the user
@@ -271,7 +268,6 @@ def chat_session(test = False):
                     "role": "user",
                     "parts": "System Prompt: "
                     + SYSTEM_PROMPT.format(
-
                         user_info=None,
                         relevant_messages=None,
                     ),
@@ -284,21 +280,19 @@ def chat_session(test = False):
         )
 
         welcome = chat.send_message(
-            f"Craft a welcome message for the user based on your previous conversation. For this message, only output your response." 
+            f"Craft a welcome message for the user based on your previous conversation. For this message, only output your response."
         )
         print(welcome.text)
         for msg in test:
             param = dialouge_manager.gricean_att(msg)
             response = chat.send_message(msg)
-            #response = chat.send_message("Model guides: " + str(param) + "\n" + "User: " + msg)
+            # response = chat.send_message("Model guides: " + str(param) + "\n" + "User: " + msg)
             print("User: " + msg)
             print(response.text)
         print(param)
 
 
-
-#chat_session()
-
+# chat_session()
 
 
 potential_cs_student = [
@@ -312,7 +306,7 @@ potential_cs_student = [
     "Can you rephrase that?",
     "What kind of projects can I work on in computer science that involve creativity?",
     "Are there any introductory resources for computer science that you recommend?What course load would you recommend for me?",
-    "exit"
+    "exit",
 ]
 
 # Potential Econ Student(With insider Knowledge)
@@ -330,7 +324,7 @@ potential_econ_student = [
     "Oh, okay sounds good.",
     "Is that all?",
     "I'm looking forward to learning more in class",
-    "exit"
+    "exit",
 ]
 
 # Senior Transfer Advisee (missing a credit from required course list but isn’t aware)
@@ -341,11 +335,15 @@ senior_transfer_advisee = [
     "Were you able to get my transcript and notes from my previous advisor",
     "Oh really? Thank you!",
     "Is there anything else?",
-    "exit"
+    "exit",
 ]
 
-test_cases= [potential_cs_student,potential_econ_student,senior_transfer_advisee]
+# test_cases = [potential_cs_student, potential_econ_student, senior_transfer_advisee]
 
-for c in test_cases:
-    chat_session(c)
-    print("-----------------------------------------------------------------------------------------")
+# for c in test_cases:
+#     chat_session(c)
+#     print(
+#         "-----------------------------------------------------------------------------------------"
+#     )
+
+chat_session()
