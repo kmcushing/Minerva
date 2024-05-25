@@ -13,3 +13,5 @@ jsons
 google-generativeai
 transformers
 torch
+requests
+beautifulsoup4

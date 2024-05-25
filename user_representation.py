@@ -16,7 +16,7 @@ class User:
         self.topic_frequencies = topic_frequencies if topic_frequencies else {}
         self.save()
 
-    def disscussed_topic(self, topic):
+    def discussed_topic(self, topic):
         # adds to discussion count of topic in user representation
         if topic in self.topic_frequencies:
             self.topic_frequencies[topic] += 1

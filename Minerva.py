@@ -1,21 +1,19 @@
 import getpass
 import os
-
-# from langchain_chroma import Chroma
 from langchain_community.embeddings.sentence_transformer import (
     SentenceTransformerEmbeddings,
 )
 from transformers import pipeline
 import spacy
 from user_representation import User, load_user
-
-# os.environ["STORAGE_PATH"] = '/Users/dwayne/Desktop/Course_DataBase/data'
-# os.environ["GOOGLE_API_KEY"] = "AIzaSyC_wsDE80a6LnetEPc_RjwikFptJRw8-AU"
-
-from chat_storage import store_user_message, retrieve_user_messages
+from course_info_storage import COURSE_COLLECTION, retrieve_and_format_courses
+from chat_storage import store_user_message, retrieve_and_format_user_messages
 import random
-
 import json
+
+# using googles api instead of langchain for direct access to update system prompt
+import google.generativeai as genai
+from google.ai.generativelanguage import Content
 
 
 path = "data/courses.json"
@@ -24,9 +22,9 @@ path = "data/courses.json"
 with open(path, "r") as file:
     data = json.load(file)
 
-#read catalog
-file_path = 'data/catalog.txt'
-with open(file_path, 'r') as file:
+# read catalog
+file_path = "data/catalog.txt"
+with open(file_path, "r") as file:
     catalog = file.read()
 
 
@@ -47,20 +45,15 @@ Follow this with a new line and "Insider Knowledge:", followed by the specific d
 If there are multiple such domains, output each one separated by a comma. \
 If the user's message only conveys outsider knowledge of domains, output "None". \
 Follow this with your response to the user's message. Begin all responses with "Minerva:". \
+When answering questions about a specifc class, only use information that you have previously provided \
+and do not make up any new information.
 {user_info}
-{relevant_messages}
-Here is the catalog:
-{catalog}.
-Here is the major requirements:
-{data}
+{context}
 """
 
 # from langchain_google_genai import ChatGoogleGenerativeAI
 
 # llm = ChatGoogleGenerativeAI(model="gemini-pro")
-
-# using googles api instead of langchain for direct access to update system prompt
-import google.generativeai as genai
 
 # for ent in doc.ents:
 # print(ent.text, ent.start_char, ent.end_char, ent.label_)
@@ -208,13 +201,18 @@ class Prompt_Handler:
 def chat_session(test=False):
 
     if not test:
-        user_id = input("Please enter your username: ")
+        # user_id cant be same as the name of our collection for course info
+        invalid_user_id = True
+        while invalid_user_id:
+            user_id = input("Please enter your username: ")
+            if user_id != COURSE_COLLECTION:
+                invalid_user_id = False
         user = load_user(user_id)
 
         dit = user.topic_frequencies
-        # choose a random topic to retrieve info for?
+        # choose a random topic to retrieve info - may want to sample based on topic frequencies
         context = (
-            retrieve_user_messages(
+            retrieve_and_format_user_messages(
                 user_id,
                 list(dit.keys())[random.randint(0, len(dit.keys()) - 1)],
             )
@@ -231,7 +229,7 @@ def chat_session(test=False):
                     "parts": "System Prompt: "
                     + SYSTEM_PROMPT.format(
                         user_info=user.to_prompt(),
-                        relevant_messages=None,
+                        context=context,
                     ),
                 },
                 {
@@ -247,16 +245,37 @@ def chat_session(test=False):
         print(welcome.text)
         dialouge_manager = Prompt_Handler(llm, user)
         prompted = False
+        course_info_idx = 1
 
         while True:
             user_input = input("You: ")
             if user_input == "exit":
                 break
             # update system prompt with more recent info and updated relevant sources
+            context = retrieve_and_format_user_messages(user_id, user_input)
+            print("CONTEXT:", context)
             chat.history[0].parts[0].text = "System Prompt: " + SYSTEM_PROMPT.format(
                 user_info=user.to_prompt(),
-                relevant_messages=retrieve_user_messages(user_id, user_input),
+                context=context,
             )
+            chat.history.insert(
+                course_info_idx,
+                {"role": "user", "parts": ""},
+            )
+            course_info_idx += 1
+            chat.history.insert(
+                course_info_idx,
+                {
+                    "role": "model",
+                    "parts": "Topic: None\nInsider Knowledge: None\nMinerva:"
+                    + retrieve_and_format_courses(user_input),
+                },
+            )
+            course_info_idx += 1
+            # want to append classes to history rather than system prompt since
+            # future user responses may reference the class without context
+            # that would be required to retrieve it again
+
             print("USER INFO:", user.to_prompt())
             # param = dialouge_manager.gricean_att(user_input)
 
