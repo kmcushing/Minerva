@@ -26,7 +26,7 @@ def store_course_info(title, description, extra_info):
     return True
 
 
-def retrieve_relevant_courses(query, max_results=10, max_distance=2.0):
+def retrieve_relevant_courses(query, max_results=5, max_distance=2.0):
     # assumes collection for user exists
     collection = client.get_collection(COURSE_COLLECTION)
     results = collection.query(
@@ -81,6 +81,6 @@ def retrieve_and_format_courses(
 
 # INITIAL TESTING
 
-ms = retrieve_and_format_courses("I like ai")
+# ms = retrieve_and_format_courses("I like ai")
 
-print(ms)
+# print(ms)
