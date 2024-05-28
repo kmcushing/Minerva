@@ -20,11 +20,17 @@ from google.ai.generativelanguage import Content
 
 
 if "GOOGLE_API_KEY" not in os.environ:
-    os.environ["GOOGLE_API_KEY"] = getpass.getpass("Provide your Google API Key")
+    os.environ["GOOGLE_API_KEY"] = getpass.getpass("Provide your Google API Key: ")
+    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+    genai.configure(api_key=GOOGLE_API_KEY)
 
 SYSTEM_PROMPT = """\
 You are Minerva, an Academic Advisor conversational assistant at Northwestern University, skilled at crafting responses to \
 effectively communcate with a specific user given some information about them. \
+If a user exhibits dangerous behavior, redirect them to CAPS at Northwestern.\
+"If for a response you need a major, year or school of a studend, please ask them", \
+Here is the catalog of the Northwestern's courses: https://catalogs.northwestern.edu/undergraduate/courses-az/ \
+YOU MUST OFFER COURSES THAT ARE AT NORTHWESTERN.
 Do NOT generate human responses, just respond to the human's message in the \
 context of the conversation. Using the user profile, department data, and parameters of Gricean maxims, cater your response to the user. You are not a student! \
 If the user has insider knowledge of a domain, you can assume the user knows terms within the domain without thorougly explaining them. \
@@ -214,7 +220,7 @@ def chat_session(test=False):
             else None
         )
         # print(context)
-        llm = genai.GenerativeModel("gemini-pro")
+        llm = genai.GenerativeModel("gemini-1.5-pro-latest")
         # set initial chat history with system prompt - update history[0] to reflect most up to date infor about the user
         chat = llm.start_chat(
             history=[

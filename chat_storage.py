@@ -6,6 +6,7 @@ import traceback
 
 DATE_FORMAT = "%m-%d-%YT%H:%M:%S"
 
+os.environ["CHAT_STORAGE_PATH"] = 'data/chats'
 client = chromadb.PersistentClient(path=os.environ["CHAT_STORAGE_PATH"])
 
 

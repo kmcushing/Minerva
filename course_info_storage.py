@@ -6,7 +6,7 @@ import traceback
 import re
 
 DATE_FORMAT = "%m-%d-%YT%H:%M:%S"
-
+os.environ["COURSES_STORAGE_PATH"] = 'data/chroma'
 client = chromadb.PersistentClient(path=os.environ["COURSES_STORAGE_PATH"])
 
 COURSE_COLLECTION = "course_information"
