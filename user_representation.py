@@ -38,7 +38,7 @@ class User:
 
     def to_prompt(self):
         # returns text representation of user for llm prompt
-        s = "Assume the user does not have insider knowledge for all domains unless otherwise specified. "
+        s = f"The user's name is {self.id}. Assume they do not have insider knowledge for all domains unless otherwise specified. "
         if self.topic_frequencies:
             s += "The user has previously discuessed the following topics:\n"
             for t in self.topic_frequencies:

@@ -17,39 +17,80 @@ import google.generativeai as genai
 from google.ai.generativelanguage import Content
 
 
-
-
 if "GOOGLE_API_KEY" not in os.environ:
     os.environ["GOOGLE_API_KEY"] = getpass.getpass("Provide your Google API Key: ")
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
     genai.configure(api_key=GOOGLE_API_KEY)
 
-SYSTEM_PROMPT = """\
-You are Minerva, an Academic Advisor conversational assistant at Northwestern University, skilled at crafting responses to \
-effectively communcate with a specific user given some information about them. \
-If a user exhibits dangerous behavior, redirect them to CAPS at Northwestern.\
-"If for a response you need a major, year or school of a studend, please ask them", \
-Here is the catalog of the Northwestern's courses: https://catalogs.northwestern.edu/undergraduate/courses-az/ \
-YOU MUST OFFER COURSES THAT ARE AT NORTHWESTERN.
-Do NOT generate human responses, just respond to the human's message in the \
-context of the conversation. Using the user profile, department data, and parameters of Gricean maxims, cater your response to the user. You are not a student! \
-If the user has insider knowledge of a domain, you can assume the user knows terms within the domain without thorougly explaining them. \
-If the user does not have insider knowledge of a domain, please explain any domain-specific terms used in a way that they would understand. \
-If possible, try to provide analogies for concepts in domains where the user does not have insider knowledge to concepts in domains that the user has insider knowledge of. \
+# SYSTEM_PROMPT = """\
+# You are Minerva, an Academic Advisor conversational assistant at Northwestern University, skilled at crafting responses to \
+# effectively communcate with a specific user given some information about them. \
+# If a user exhibits dangerous behavior, redirect them to CAPS at Northwestern.\
+# "If for a response you need a major, year or school of a student, please ask them", \
+# Here is the catalog of the Northwestern's courses: https://catalogs.northwestern.edu/undergraduate/courses-az/ \
+# YOU MUST OFFER COURSES THAT ARE AT NORTHWESTERN.
+# Do NOT generate human responses, just respond to the human's message in the \
+# context of the conversation. Using the user profile, department data, and parameters of Gricean maxims, cater your response to the user. You are not a student! \
+# If the user has insider knowledge of a domain, you can assume the user knows terms within the domain without thorougly explaining them. \
+# If the user does not have insider knowledge of a domain, please explain any domain-specific terms used in a way that they would understand. \
+# If possible, try to provide analogies for concepts in domains where the user does not have insider knowledge to concepts in domains that the user has insider knowledge of. \
+# Please begin your response with "Topic:", followed by the general topic of the user's previous message.
+# Keep this topic as brief and general as possible while still accurately capturing the topic of the message. \
+# Follow this with a new line and "Insider Knowledge:", followed by the specific domains that the user's last message conveys insider knowledge of.
+# If there are multiple such domains, output each one separated by a comma. \
+# If the user's message only conveys outsider knowledge of domains, output "None". \
+# Follow this with a new line and "Violations: " , and using the maxims violation examples provide, assign if the user's response indicates a violation from the model in either "Quantity", "Quality", "Relation", or "Manner" \
+# If there are multiple such violations, output each one separated by a comma. \
+# Follow this with your response to the user's message. Begin all responses with "Minerva:". \
+# When answering questions about a specifc class, only use information that you have been previously provided \
+# and do not make up any new information.
+# {user_info}
+# {context}
+# {maxims}
+# """
+
+DM_SYSTEM_PROMPT = """\
+You're job is to extract the Topic, Insider Knowledge, and Violations from a given message from a user as specified here. \
 Please begin your response with "Topic:", followed by the general topic of the user's previous message. 
 Keep this topic as brief and general as possible while still accurately capturing the topic of the message. \
+If the user is asking about or referring to courses at Northwestern, the topic should be "Northwestern Courses". \
 Follow this with a new line and "Insider Knowledge:", followed by the specific domains that the user's last message conveys insider knowledge of. 
 If there are multiple such domains, output each one separated by a comma. \
 If the user's message only conveys outsider knowledge of domains, output "None". \
-Follow this with a new line and "Violations: " , and using the maxims violation examples provide, assign if the user's response indicates a violation from the model in either "Quantity", "Quality", "Relation", or "Manner" \
+Follow this with a new line and "Violations:", and using the provided Gricean maxim violation examples provides, determine if the user's response indicates a violation in the prior turn of the conversation for each maxim of "Quantity", "Quality", "Relation", or "Manner". \
 If there are multiple such violations, output each one separated by a comma. \
-Follow this with your response to the user's message. Begin all responses with "Minerva:". \
-When answering questions about a specifc class, only use information that you have been previously provided \
-and do not make up any new information.
+The Gricean maxims are defined as follows: 
+Quantity: where one tries to be as informative as one possibly can, and gives as much information as is needed, and no more
+Quality: where one tries to be truthful, and does not give information that is false or that is not supported by evidence
+Relation: where one tries to be relevant, and says things that are pertinent to the discussion
+Manner: when one tries to be as clear, as brief, and as orderly as one can in what one says, and where one avoids obscurity and ambiguity
+
+Some example phrases that can indicate violations of each maxim are as follows:
+{maxim_violation_examples}
+{user_info}
+"""
+
+MINERVA_SYSTEM_PROMPT = """\
+You are Minerva, an Academic Advisor conversational assistant at Northwestern University, skilled at crafting responses to \
+effectively communcate with a specific user given some information about them. \
+Do NOT generate human responses, just respond to the human's message in the \
+context of the conversation. Using the user profile and parameters of Gricean maxims, cater your response to the user. You are not a student! \
+If the user has insider knowledge of a domain, you can assume the user knows terms within the domain without thorougly explaining them. Overexplaining violates the Gricean maxim of Quantity. \
+If the user does not have insider knowledge of a domain, please explain any domain-specific terms used in a way that they would understand. Underexplaining also violates the Gricean maxim of Quantity. \
+If possible, try to provide analogies for concepts in domains where the user does not have insider knowledge to concepts in domains that the user has insider knowledge of. \
+Begin all responses with "Minerva:". When answering questions about a specifc class, only use information that you have previously provided \
+and do not make up any new information. Do not mention anything about the professor teaching the class as that information is not available.
+{maxim_info}
 {user_info}
 {context}
-{maxims}
 """
+
+# adapted from https://www.sas.upenn.edu/~haroldfs/dravling/grice.html#:~:text=The%20maxim%20of%20quantity%2C%20where,is%20not%20supported%20by%20evidence
+MINERVA_MAXIMS_DESCRIPTION = """Please adhere to the following Gricean maxims for conversation.
+Quantity: where one tries to be as informative as one possibly can, and gives as much information as is needed, and no more
+Quality: where one tries to be truthful, and does not give information that is false or that is not supported by evidence
+Relation: where one tries to be relevant, and says things that are pertinent to the discussion
+Manner: when one tries to be as clear, as brief, and as orderly as one can in what one says, and where one avoids obscurity and ambiguity"""
 
 # from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -132,15 +173,70 @@ maxims = {
 }
 
 
-class Prompt_Handler:
-    def __init__(self, llm, user):
+def maxim_violations_to_string():
+    s = ""
+    for m in maxims:
+        s += f"The following phrases cna indicate violations of {m}:\n"
+        for p in maxims[m]:
+            s += f"{p}\n"
+    return s
+
+
+class DialogueManager:
+    def __init__(self, user, llm):
         self.violation = {"quantity": 1, "quality": 1, "relation": 1, "manner": 1}
         self.num_turns = 0
-        self.classify = spacy.load("en_core_web_sm")
-        self.llm = llm
+        # self.classify = spacy.load("en_core_web_sm")
+        # only need to update user rep in this for each query
+        self.dm_chat = llm.start_chat(
+            history=[
+                {
+                    "role": "user",
+                    "parts": "System Prompt: "
+                    + DM_SYSTEM_PROMPT.format(
+                        maxim_violation_examples=maxim_violations_to_string(),
+                        user_info=user.to_prompt(),
+                    ),
+                },
+                {
+                    "role": "model",
+                    "parts": "Understood.",
+                },
+            ]
+        )
+        # need to add classes to this
+        # initially retrieve some past messages about a random topic the user has discussed
+        dit = user.topic_frequencies
+        # choose a random topic to retrieve info - may want to sample based on topic frequencies
+        context = (
+            retrieve_and_format_user_messages(
+                user.id,
+                list(dit.keys())[random.randint(0, len(dit.keys()) - 1)],
+            )
+            if dit
+            else None
+        )
+        self.minerva_chat = llm.start_chat(
+            history=[
+                {
+                    "role": "user",
+                    "parts": "System Prompt: "
+                    + MINERVA_SYSTEM_PROMPT.format(
+                        maxim_info=MINERVA_MAXIMS_DESCRIPTION,
+                        user_info=user.to_prompt(),
+                        context=context,
+                    ),
+                },
+                {
+                    "role": "model",
+                    "parts": "Understood.",
+                },
+            ]
+        )
         self.user = user
+        self.course_info_idx = 1
 
-    def gricean_att(self, prompt, violations):
+    def update_gricean_atts(self, prompt, violations):
         self.num_turns += 1
         sent = classifier(prompt)
         label, score = (sent[0]["label"], sent[0]["score"])
@@ -157,16 +253,32 @@ class Prompt_Handler:
         # parase through prompt and assign new gricean values
         return self.violation
 
-    def domain_builder(self, prompt):
-        doc = self.classify(prompt)
-        # Extract and categorize entities dynamically
-        for ent in doc.ents:
-            self.user.disscussed_topic(ent.text)
+    # def domain_builder(self, prompt):
+    #     doc = self.classify(prompt)
+    #     # Extract and categorize entities dynamically
+    #     for ent in doc.ents:
+    #         self.user.disscussed_topic(ent.text
 
-    def response_handler(self, user_input, response):
+    def retrieve_and_insert_courses(self, user_input):
+        self.minerva_chat.history.insert(
+            self.course_info_idx,
+            {"role": "user", "parts": ""},
+        )
+        self.course_info_idx += 1
+        self.minerva_chat.history.insert(
+            self.course_info_idx,
+            {
+                "role": "model",
+                "parts": retrieve_and_format_courses(user_input),
+            },
+        )
+        self.course_info_idx += 1
+
+    def dm_invoke(self, user_input):
+        # generate response
+        response = self.dm_chat.send_message(user_input).text
         if (
-            "Minerva:" not in response
-            or "Topic:" not in response
+            "Topic:" not in response
             or "Insider Knowledge:" not in response
             or "Violations: " not in response
         ):
@@ -177,25 +289,47 @@ class Prompt_Handler:
         topic = response[topic_start:topic_end].strip().lower()
         domain_start = topic_end + len("Insider Knowledge: ")
         violation_start = response.index("Violations: ") + len("Violations: ")
-        message_start = response.index("Minerva: ")
         domains = [
             d.strip().lower()
-            for d in str(response[domain_start:response.index("Violations: ")]).split(",")
+            for d in str(response[domain_start : response.index("Violations:")]).split(
+                ","
+            )
         ]
-
+        # update system violations
         violations = [
-            v.strip().lower()
-            for v in str(response[violation_start:message_start]).split(",")
+            v.strip().lower() for v in str(response[violation_start:]).split(",")
         ]
-        self.gricean_att(user_input,violations)
-        message = response[message_start:].strip()
+        self.update_gricean_atts(user_input, violations)
         # update user's topics
         self.user.discussed_topic(topic)
+        # if message is about courses, retrieve and aoppend course info to chat history
+        if "course" in topic.lower() or "class" in topic.lower():
+            self.retrieve_and_insert_courses(user_input)
         # update user's insider domains
         [self.user.add_insider_domain(d) for d in domains if d != "none"]
-        # update user's messages
-        store_user_message(self.user.id, user_input, message)
-        return message
+        return violations
+
+    def handle_user_message(self, user_input):
+        # first invoke dm
+        violations = self.dm_invoke(user_input)
+        # then use dm to update chat history
+        violation_str = (
+            ""
+            if not violations
+            else " You may have violated the following maxims in your previous response: "
+            + " ".join(violations)
+        )
+        context = retrieve_and_format_user_messages(self.user.id, user_input)
+        # print("CONTEXT:", context)
+        self.minerva_chat.history[0].parts[0].text = (
+            "System Prompt: "
+            + MINERVA_SYSTEM_PROMPT.format(
+                maxim_info=MINERVA_MAXIMS_DESCRIPTION + violation_str,
+                user_info=self.user.to_prompt(),
+                context=context,
+            )
+        )
+        return self.minerva_chat.send_message(user_input).text
 
 
 def chat_session(test=False):
@@ -209,118 +343,96 @@ def chat_session(test=False):
                 invalid_user_id = False
         user = load_user(user_id)
 
-        dit = user.topic_frequencies
-        # choose a random topic to retrieve info - may want to sample based on topic frequencies
-        context = (
-            retrieve_and_format_user_messages(
-                user_id,
-                list(dit.keys())[random.randint(0, len(dit.keys()) - 1)],
-            )
-            if dit
-            else None
-        )
         # print(context)
         llm = genai.GenerativeModel("gemini-1.5-pro-latest")
         # set initial chat history with system prompt - update history[0] to reflect most up to date infor about the user
-        chat = llm.start_chat(
-            history=[
-                {
-                    "role": "user",
-                    "parts": "System Prompt: "
-                    + SYSTEM_PROMPT.format(
-                        user_info=user.to_prompt(),
-                        context=context,
-                        maxims=maxims
-                    ),
-                },
-                {
-                    "role": "model",
-                    "parts": "Understood.",
-                },
-            ]
-        )
+        # chat = llm.start_chat(
+        #     history=[
+        #         {
+        #             "role": "user",
+        #             "parts": "System Prompt: "
+        #             + SYSTEM_PROMPT.format(
+        #                 user_info=user.to_prompt(), context=context, maxims=maxims
+        #             ),
+        #         },
+        #         {
+        #             "role": "model",
+        #             "parts": "Understood.",
+        #         },
+        #     ]
+        # )
 
-        welcome = chat.send_message(
-            f"Craft a welcome message for the user based on your previous conversation. For this message, only output your response."
+        dialouge_manager = DialogueManager(user, llm)
+
+        # TODO: refactor this
+        # welcome = chat.send_message(
+        #     f"Craft a welcome message for the user based on your previous conversation."
+        # )
+        # print(welcome.text)
+        welcome = dialouge_manager.minerva_chat.send_message(
+            "Craft a welcome message for the user based on your previous conversation. For this message, only output your response."
         )
         print(welcome.text)
-        dialouge_manager = Prompt_Handler(llm, user)
-        prompted = False
-        course_info_idx = 1
+        # prompted = False
+        # course_info_idx = 1
 
         while True:
             user_input = input("You: ")
             if user_input == "exit":
                 break
             # update system prompt with more recent info and updated relevant sources
-            context = retrieve_and_format_user_messages(user_id, user_input)
-            print("CONTEXT:", context)
-            chat.history[0].parts[0].text = "System Prompt: " + SYSTEM_PROMPT.format(
-                user_info=user.to_prompt(),
-                context=context,
-                maxims=maxims,
-            )
-            chat.history.insert(
-                course_info_idx,
-                {"role": "user", "parts": ""},
-            )
-            course_info_idx += 1
-            chat.history.insert(
-                course_info_idx,
-                {
-                    "role": "model",
-                    "parts": "Topic: None\nInsider Knowledge: None\nMinerva:"
-                    + retrieve_and_format_courses(user_input),
-                },
-            )
-            course_info_idx += 1
+            # TODO: call dm.handle_user_message
+
             # want to append classes to history rather than system prompt since
             # future user responses may reference the class without context
             # that would be required to retrieve it again
 
-            print("USER INFO:", user.to_prompt())
+            # print("USER INFO:", user.to_prompt())
             # param = dialouge_manager.gricean_att(user_input)
 
-            response = chat.send_message(user_input)
+            # response = chat.send_message(user_input)
             # print(result.content)
             # store_user_message(user_id, user_id, response.text)
             # print(response.text)
-            output = dialouge_manager.response_handler(user_input, response.text)
-            print(output)
-            prompted = False
-    else:
-        user_info = "test"
-        llm = genai.GenerativeModel("gemini-pro")
-        dialouge_manager = Prompt_Handler(llm, user_info)
-        # set initial chat history with system prompt - update history[0] to reflect most up to date infor about the user
-        chat = llm.start_chat(
-            history=[
-                {
-                    "role": "user",
-                    "parts": "System Prompt: "
-                    + SYSTEM_PROMPT.format(
-                        user_info=None,
-                        relevant_messages=None,
-                    ),
-                },
-                {
-                    "role": "model",
-                    "parts": "Understood.",
-                },
-            ]
-        )
+            # output = dialouge_manager.response_handler(user_input, response.text)
+            response = dialouge_manager.handle_user_message(user_input)
+            # print(output)
+            print(response)
+            # prompted = False
+    # TODO: refactor this to use the updated DM class
+    # else:
+    #     user_info = "test"
+    #     llm = genai.GenerativeModel("gemini-pro")
+    #     dialouge_manager = Prompt_Handler(llm, user_info)
+    #     # set initial chat history with system prompt - update history[0] to reflect most up to date infor about the user
+    #     chat = llm.start_chat(
+    #         history=[
+    #             {
+    #                 "role": "user",
+    #                 "parts": "System Prompt: "
+    #                 + SYSTEM_PROMPT.format(
+    #                     user_info=None,
+    #                     relevant_messages=None,
+    #                 ),
+    #             },
+    #             {
+    #                 "role": "model",
+    #                 "parts": "Understood.",
+    #             },
+    #         ]
+    #     )
 
-        welcome = chat.send_message(
-            f"Craft a welcome message for the user based on your previous conversation. For this message, only output your response."
-        )
-        print(welcome.text)
-        for msg in test:
-            param = dialouge_manager.gricean_att(msg)
-            response = chat.send_message(msg)
-            # response = chat.send_message("Model guides: " + str(param) + "\n" + "User: " + msg)
-            print("User: " + msg)
-            print(response.text)
-        print(param)
+    #     welcome = chat.send_message(
+    #         f"Craft a welcome message for the user based on your previous conversation. For this message, only output your response."
+    #     )
+    #     print(welcome.text)
+    #     for msg in test:
+    #         param = dialouge_manager.gricean_att(msg)
+    #         response = chat.send_message(msg)
+    #         # response = chat.send_message("Model guides: " + str(param) + "\n" + "User: " + msg)
+    #         print("User: " + msg)
+    #         print(response.text)
+    #     print(param)
 
 
 # chat_session()

@@ -117,7 +117,7 @@ def retrieve_and_format_user_messages(
 
 # ms = retrieve_and_format_user_messages(
 #     "user5",
-#     "remind me of the steps needed to create an ai model for time-series forecasting",
+#     "machine learning class",
 # )
 
 # print(ms)
