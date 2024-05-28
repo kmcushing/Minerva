@@ -3,6 +3,7 @@ import os
 from langchain_community.embeddings.sentence_transformer import (
     SentenceTransformerEmbeddings,
 )
+
 from transformers import pipeline
 import spacy
 from user_representation import User, load_user
@@ -16,16 +17,6 @@ import google.generativeai as genai
 from google.ai.generativelanguage import Content
 
 
-path = "data/courses.json"
-
-# Open the JSON file and load its content into a variable
-with open(path, "r") as file:
-    data = json.load(file)
-
-# read catalog
-file_path = "data/catalog.txt"
-with open(file_path, "r") as file:
-    catalog = file.read()
 
 
 if "GOOGLE_API_KEY" not in os.environ:
@@ -44,11 +35,14 @@ Keep this topic as brief and general as possible while still accurately capturin
 Follow this with a new line and "Insider Knowledge:", followed by the specific domains that the user's last message conveys insider knowledge of. 
 If there are multiple such domains, output each one separated by a comma. \
 If the user's message only conveys outsider knowledge of domains, output "None". \
+Follow this with a new line and "Violations: " , and using the maxims violation examples provide, assign if the user's response indicates a violation from the model in either "Quantity", "Quality", "Relation", or "Manner" \
+If there are multiple such violations, output each one separated by a comma. \
 Follow this with your response to the user's message. Begin all responses with "Minerva:". \
-When answering questions about a specifc class, only use information that you have previously provided \
+When answering questions about a specifc class, only use information that you have been previously provided \
 and do not make up any new information.
 {user_info}
 {context}
+{maxims}
 """
 
 # from langchain_google_genai import ChatGoogleGenerativeAI
@@ -134,33 +128,25 @@ maxims = {
 
 class Prompt_Handler:
     def __init__(self, llm, user):
-        self.violation = {"Quantity": 0, "Quality": 0, "Relation": 0, "Manner": 0}
+        self.violation = {"quantity": 1, "quality": 1, "relation": 1, "manner": 1}
         self.num_turns = 0
         self.classify = spacy.load("en_core_web_sm")
-        self.user_domains = {}
         self.llm = llm
         self.user = user
 
-    def gricean_att(self, prompt):
+    def gricean_att(self, prompt, violations):
         self.num_turns += 1
         sent = classifier(prompt)
         label, score = (sent[0]["label"], sent[0]["score"])
-        if label == "NEGATIVE":
-            for mx, phrase in maxims.items():
-                if any(ph.lower() in prompt.lower() for ph in phrase):
-                    self.violation[mx] -= 0.2 * score
-                    if mx == "Quality":
-                        # prompt to ask the user for more information and update records
-                        result = self.llm.invoke(
-                            f"{SYSTEM_PROMPT+'Ask the user for more information on what is incorrect'}"
-                        )
-                        print(result.content)
-                        prompted = True
-                else:
-                    self.violation[mx] += 0.1 * score
-        else:
-            for mx, phrase in maxims.items():
-                self.violation[mx] += 0.1 * score
+        for v in self.violation:
+            if v in violations:
+                self.violation[v] -= 0.02 * score
+            else:
+                self.violation[v] += 0.01 * score
+            if self.violation[v] > 1:
+                self.violation[v] = 1
+            elif self.violation[v] < -1:
+                self.violation[v] = -1
             # test for sensitivity
         # parase through prompt and assign new gricean values
         return self.violation
@@ -176,6 +162,7 @@ class Prompt_Handler:
             "Minerva:" not in response
             or "Topic:" not in response
             or "Insider Knowledge:" not in response
+            or "Violations: " not in response
         ):
             print("ERROR: response format incorrect for response", response)
             return None
@@ -183,11 +170,18 @@ class Prompt_Handler:
         topic_end = response.index("Insider Knowledge: ")
         topic = response[topic_start:topic_end].strip().lower()
         domain_start = topic_end + len("Insider Knowledge: ")
+        violation_start = response.index("Violations: ") + len("Violations: ")
         message_start = response.index("Minerva: ")
         domains = [
             d.strip().lower()
-            for d in str(response[domain_start:message_start]).split(",")
+            for d in str(response[domain_start:response.index("Violations: ")]).split(",")
         ]
+
+        violations = [
+            v.strip().lower()
+            for v in str(response[violation_start:message_start]).split(",")
+        ]
+        self.gricean_att(user_input,violations)
         message = response[message_start:].strip()
         # update user's topics
         self.user.discussed_topic(topic)
@@ -230,6 +224,7 @@ def chat_session(test=False):
                     + SYSTEM_PROMPT.format(
                         user_info=user.to_prompt(),
                         context=context,
+                        maxims=maxims
                     ),
                 },
                 {
@@ -257,6 +252,7 @@ def chat_session(test=False):
             chat.history[0].parts[0].text = "System Prompt: " + SYSTEM_PROMPT.format(
                 user_info=user.to_prompt(),
                 context=context,
+                maxims=maxims,
             )
             chat.history.insert(
                 course_info_idx,
