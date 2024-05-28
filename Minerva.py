@@ -297,7 +297,9 @@ class DialogueManager:
         ]
         # update system violations
         violations = [
-            v.strip().lower() for v in str(response[violation_start:]).split(",")
+            v.strip().lower()
+            for v in str(response[violation_start:]).split(",")
+            if v.strip().lower() != "none"
         ]
         self.update_gricean_atts(user_input, violations)
         # update user's topics
@@ -319,6 +321,10 @@ class DialogueManager:
             else " You may have violated the following maxims in your previous response: "
             + " ".join(violations)
         )
+        # leave this for demo as it will be good to show that the model is able to detect violations and remedy them
+        if violations:
+            print("DETECTED POSSIBLE VIOLATIONS:", violations)
+
         context = retrieve_and_format_user_messages(self.user.id, user_input)
         # print("CONTEXT:", context)
         self.minerva_chat.history[0].parts[0].text = (
