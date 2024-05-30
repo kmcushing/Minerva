@@ -1,12 +1,10 @@
 import chromadb
-from datetime import datetime
 from uuid import uuid4
 import os
 import traceback
-import re
 
 DATE_FORMAT = "%m-%d-%YT%H:%M:%S"
-os.environ["COURSES_STORAGE_PATH"] = 'data/chroma'
+os.environ["COURSES_STORAGE_PATH"] = "data/chroma"
 client = chromadb.PersistentClient(path=os.environ["COURSES_STORAGE_PATH"])
 
 COURSE_COLLECTION = "course_information"
@@ -40,7 +38,6 @@ def retrieve_relevant_courses(query, max_results=5, max_distance=2.0):
         results["metadatas"][0],
         results["distances"][0],
     )
-    # print(data)
 
     relevant_courses = []
     for doc, metadata, dist in data:
@@ -74,8 +71,6 @@ def retrieve_and_format_courses(
             s += f" Additional Info: {extra_info}\n" if extra_info else "\n"
         return s
     except Exception as e:
-        # print(e)
-        # print(traceback.format_exc())
         return ""
 
 

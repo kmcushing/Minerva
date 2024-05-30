@@ -6,11 +6,9 @@ import traceback
 
 DATE_FORMAT = "%m-%d-%YT%H:%M:%S"
 
-os.environ["CHAT_STORAGE_PATH"] = 'data/chats'
 client = chromadb.PersistentClient(path=os.environ["CHAT_STORAGE_PATH"])
 
 
-# TODO: fix "Context leak detected" message
 def store_user_message(username, input, response):
     collection = client.get_or_create_collection(username)
     # add embeddings for both user message and response
@@ -35,7 +33,6 @@ def store_user_message(username, input, response):
     return True
 
 
-# TODO: add filtering by a date or length of time from datetime.now()
 def retrieve_user_messages(username, query, max_results=10, max_distance=2.0):
     # assumes collection for user exists
     collection = client.get_collection(username)
@@ -54,7 +51,6 @@ def retrieve_user_messages(username, query, max_results=10, max_distance=2.0):
         key=lambda x: datetime.strptime(x[1]["timestamp"], DATE_FORMAT),
         reverse=True,
     )
-    # print(data)
 
     relevant_messages = []
     for message, metadata, dist in data:
@@ -87,7 +83,6 @@ def retrieve_and_format_user_messages(
                 if role == "user"
                 else (paired_message, message)
             )
-            # print(pair)
             if pair not in pairs:
                 pairs.append(pair)
         if not pairs:
@@ -97,8 +92,6 @@ def retrieve_and_format_user_messages(
             s += f"User: {user_message}\nMinerva: {minerva_message}\n"
         return s
     except Exception as e:
-        # print(e)
-        # print(traceback.format_exc())
         return ""
 
 

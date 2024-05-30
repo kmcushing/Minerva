@@ -1,20 +1,11 @@
 import getpass
 import os
-from langchain_community.embeddings.sentence_transformer import (
-    SentenceTransformerEmbeddings,
-)
-
 from transformers import pipeline
-import spacy
 from user_representation import User, load_user
 from course_info_storage import COURSE_COLLECTION, retrieve_and_format_courses
 from chat_storage import store_user_message, retrieve_and_format_user_messages
 import random
-import json
-
-# using googles api instead of langchain for direct access to update system prompt
 import google.generativeai as genai
-from google.ai.generativelanguage import Content
 
 
 if "GOOGLE_API_KEY" not in os.environ:
@@ -22,32 +13,6 @@ if "GOOGLE_API_KEY" not in os.environ:
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
     genai.configure(api_key=GOOGLE_API_KEY)
 
-# SYSTEM_PROMPT = """\
-# You are Minerva, an Academic Advisor conversational assistant at Northwestern University, skilled at crafting responses to \
-# effectively communcate with a specific user given some information about them. \
-# If a user exhibits dangerous behavior, redirect them to CAPS at Northwestern.\
-# "If for a response you need a major, year or school of a student, please ask them", \
-# Here is the catalog of the Northwestern's courses: https://catalogs.northwestern.edu/undergraduate/courses-az/ \
-# YOU MUST OFFER COURSES THAT ARE AT NORTHWESTERN.
-# Do NOT generate human responses, just respond to the human's message in the \
-# context of the conversation. Using the user profile, department data, and parameters of Gricean maxims, cater your response to the user. You are not a student! \
-# If the user has insider knowledge of a domain, you can assume the user knows terms within the domain without thorougly explaining them. \
-# If the user does not have insider knowledge of a domain, please explain any domain-specific terms used in a way that they would understand. \
-# If possible, try to provide analogies for concepts in domains where the user does not have insider knowledge to concepts in domains that the user has insider knowledge of. \
-# Please begin your response with "Topic:", followed by the general topic of the user's previous message.
-# Keep this topic as brief and general as possible while still accurately capturing the topic of the message. \
-# Follow this with a new line and "Insider Knowledge:", followed by the specific domains that the user's last message conveys insider knowledge of.
-# If there are multiple such domains, output each one separated by a comma. \
-# If the user's message only conveys outsider knowledge of domains, output "None". \
-# Follow this with a new line and "Violations: " , and using the maxims violation examples provide, assign if the user's response indicates a violation from the model in either "Quantity", "Quality", "Relation", or "Manner" \
-# If there are multiple such violations, output each one separated by a comma. \
-# Follow this with your response to the user's message. Begin all responses with "Minerva:". \
-# When answering questions about a specifc class, only use information that you have been previously provided \
-# and do not make up any new information.
-# {user_info}
-# {context}
-# {maxims}
-# """
 
 DM_SYSTEM_PROMPT = """\
 You're job is to extract the Topic, Insider Knowledge, and Violations from a given message from a user as specified here. \
@@ -91,13 +56,6 @@ Quantity: where one tries to be as informative as one possibly can, and gives as
 Quality: where one tries to be truthful, and does not give information that is false or that is not supported by evidence
 Relation: where one tries to be relevant, and says things that are pertinent to the discussion
 Manner: when one tries to be as clear, as brief, and as orderly as one can in what one says, and where one avoids obscurity and ambiguity"""
-
-# from langchain_google_genai import ChatGoogleGenerativeAI
-
-# llm = ChatGoogleGenerativeAI(model="gemini-pro")
-
-# for ent in doc.ents:
-# print(ent.text, ent.start_char, ent.end_char, ent.label_)
 
 
 # Load a pre-trained sentiment-analysis pipeline, specify a model
@@ -204,7 +162,6 @@ class DialogueManager:
                 },
             ]
         )
-        # need to add classes to this
         # initially retrieve some past messages about a random topic the user has discussed
         dit = user.topic_frequencies
         # choose a random topic to retrieve info - may want to sample based on topic frequencies
@@ -249,15 +206,7 @@ class DialogueManager:
                 self.violation[v] = 1
             elif self.violation[v] < -1:
                 self.violation[v] = -1
-            # test for sensitivity
-        # parase through prompt and assign new gricean values
         return self.violation
-
-    # def domain_builder(self, prompt):
-    #     doc = self.classify(prompt)
-    #     # Extract and categorize entities dynamically
-    #     for ent in doc.ents:
-    #         self.user.disscussed_topic(ent.text
 
     def retrieve_and_insert_courses(self, user_input):
         self.minerva_chat.history.insert(
@@ -321,12 +270,11 @@ class DialogueManager:
             else " You may have violated the following maxims in your previous response: "
             + " ".join(violations)
         )
-        # leave this for demo as it will be good to show that the model is able to detect violations and remedy them
-        if violations:
-            print("DETECTED POSSIBLE VIOLATIONS:", violations)
+        # UNCOMMENT THE FOLLOWING 2 LINES IF YOU WANT TO PRINT OUT DETECTED VIOLATIONS
+        # if violations:
+        # print("DETECTED POSSIBLE VIOLATIONS:", violations)
 
         context = retrieve_and_format_user_messages(self.user.id, user_input)
-        # print("CONTEXT:", context)
         self.minerva_chat.history[0].parts[0].text = (
             "System Prompt: "
             + MINERVA_SYSTEM_PROMPT.format(
@@ -335,7 +283,9 @@ class DialogueManager:
                 context=context,
             )
         )
-        return self.minerva_chat.send_message(user_input).text
+        response = self.minerva_chat.send_message(user_input).text
+        store_user_message(self.user.id, user_input, response)
+        return response
 
 
 def chat_session(test=False):
@@ -349,62 +299,21 @@ def chat_session(test=False):
                 invalid_user_id = False
         user = load_user(user_id)
 
-        # print(context)
         llm = genai.GenerativeModel("gemini-1.5-pro-latest")
-        # set initial chat history with system prompt - update history[0] to reflect most up to date infor about the user
-        # chat = llm.start_chat(
-        #     history=[
-        #         {
-        #             "role": "user",
-        #             "parts": "System Prompt: "
-        #             + SYSTEM_PROMPT.format(
-        #                 user_info=user.to_prompt(), context=context, maxims=maxims
-        #             ),
-        #         },
-        #         {
-        #             "role": "model",
-        #             "parts": "Understood.",
-        #         },
-        #     ]
-        # )
 
         dialouge_manager = DialogueManager(user, llm)
 
-        # TODO: refactor this
-        # welcome = chat.send_message(
-        #     f"Craft a welcome message for the user based on your previous conversation."
-        # )
-        # print(welcome.text)
         welcome = dialouge_manager.minerva_chat.send_message(
-            "Craft a welcome message for the user based on your previous conversation. For this message, only output your response."
+            "Craft a welcome message for the user based on your previous conversation."
         )
         print(welcome.text)
-        # prompted = False
-        # course_info_idx = 1
 
         while True:
             user_input = input("You: ")
             if user_input == "exit":
                 break
-            # update system prompt with more recent info and updated relevant sources
-            # TODO: call dm.handle_user_message
-
-            # want to append classes to history rather than system prompt since
-            # future user responses may reference the class without context
-            # that would be required to retrieve it again
-
-            # print("USER INFO:", user.to_prompt())
-            # param = dialouge_manager.gricean_att(user_input)
-
-            # response = chat.send_message(user_input)
-            # print(result.content)
-            # store_user_message(user_id, user_id, response.text)
-            # print(response.text)
-            # output = dialouge_manager.response_handler(user_input, response.text)
             response = dialouge_manager.handle_user_message(user_input)
-            # print(output)
             print(response)
-            # prompted = False
     # TODO: refactor this to use the updated DM class
     # else:
     #     user_info = "test"
@@ -487,6 +396,7 @@ senior_transfer_advisee = [
     "exit",
 ]
 
+# uncomment for testing
 # test_cases = [potential_cs_student, potential_econ_student, senior_transfer_advisee]
 
 # for c in test_cases:
