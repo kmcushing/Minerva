@@ -8,7 +8,7 @@ Create a local virtual environment with Python 3.10 (can be done by running `pyt
 
 - `CHAT_STORAGE_PATH` set to the relative path to a directory where you would like to store the persistent ChromaDB collections for conversation histories
 - `COURSES_STORAGE_PATH` set to the relative path to a directory where you would like to store the persistent ChromaDB collection for courses and their descriptions
-- `GOOGLE_API_KEY` set to the value of an API key for Gemini - you can create this key following the docs [here](https://ai.google.dev/gemini-api/docs/api-key) if you have an existing GCP account
+- `GOOGLE_API_KEY` set to the value of an API key for Gemini - you can create this key following the docs [here](https://ai.google.dev/gemini-api/docs/api-key) - if you do not have a GCP account you will have to create one
 
 After defining your enviornment variables, you will need to extract course information from the Northwestern course catalog webpage by running `python extract_course_info.py`. ONLY DO THIS THE FIRST TIME YOU SET UP THIS REPO, otherwise courses will be duplicated in the corresponding ChromaDB collection, leading to the same course occuring multiple times in the prompt for Gemini.
 
