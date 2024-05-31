@@ -1,15 +1,8 @@
 # could initially just be a json with most common topics (and some measure of their frequency) along with a list of domains they have insider info on
 import jsons
 
-# TODO: define an enum for topics based on how we are extracting them
-
-# TOOO: maybe use a hierarchical structure for domains with insider knowledge?
-
 
 class User:
-    # TODO: may want to also store user sentiment with topics
-    # TODO: better representation for user domains
-    # TODO: use some sort of decay for user's frequent topics with a decay rate for each message?
     def __init__(self, id, insider_domains=None, topic_frequencies=None):
         self.id = id
         self.insider_domains = insider_domains if insider_domains else {}
@@ -56,7 +49,6 @@ class User:
 
 # load user representation
 def load_user(id):
-    # TODO: may want to remove hard-coded path
     try:
         f = open(f"data/user_representations/{id}.json", "r")
         return jsons.loads(f.read(), User)
@@ -64,5 +56,6 @@ def load_user(id):
         return User(id)
 
 
+# test loading user
 # user1 = load_user("user1")
 # print(user1.to_prompt())
