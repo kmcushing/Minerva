@@ -14,4 +14,4 @@ After defining your enviornment variables, you will need to extract course infor
 
 ## Using Minerva
 
-Inside of your virtual environment, after installing the requirements, open a terminal \(make sure your environment variables are defined in the terminal session\) and run `python Minerva.py` from the root directory of this folder. You will be prompted to input a username and then you can converse with Minerva.
+Inside of your virtual environment, after installing the requirements, ensure your environment variables are defined and run `python Minerva.py` from the root directory of this folder. You will be prompted to input a username and then you can chat with Minerva.
