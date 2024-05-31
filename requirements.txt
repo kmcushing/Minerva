@@ -1,14 +1,4 @@
-# langchain
-# gpt4all
-# langchain==0.0.255
-# gpt4all==1.0.2
-requests
 bs4
-# for mac, need to use 
-# CMAKE_ARGS="-DLLAMA_METAL=on" FORCE_CMAKE=1 pip install --upgrade --force-reinstall llama-cpp-python --no-cache-dir
-# most recent versions
-langchain==0.1.17
-# gpt4all==2.6.0
 chromadb
 jsons
 google-generativeai
