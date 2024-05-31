@@ -1,0 +1,10 @@
+{
+  "id": "sample-user",
+  "insider_domains": {
+    "artificial intelligence": 0
+  },
+  "topic_frequencies": {
+    "Other Sports": 1,
+    "Emerging Technologies": 1
+  }
+}
